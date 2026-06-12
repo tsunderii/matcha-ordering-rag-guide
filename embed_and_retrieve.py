@@ -206,22 +206,34 @@ def build_collection(chunks, model):
 # ===========================================================================
 # STEP 7 — THE RETRIEVAL FUNCTION
 # ===========================================================================
-def retrieve(query, collection, model, top_k=TOP_K):
+def retrieve(query, collection, model, top_k=TOP_K, where=None):
     """
     Embed the query, search ChromaDB, and return + print the top_k chunks.
 
-    Returns a list of result dicts, each with: source, chunk_index, distance, text.
+    Returns a list of result dicts, each with: source, chunk_index, char_length,
+    distance, text.
+
+    `where` is an optional ChromaDB metadata filter (a dict). When provided, only
+    chunks whose metadata matches are searched — semantic ranking then happens
+    within that filtered subset. Examples:
+        where={"source": "08_naoki_matcha_grades.txt"}   # only this document
+        where={"char_length": {"$gte": 400}}             # only longer chunks
     """
     # 1. Embed the query with the SAME model used for the chunks.
     query_embedding = model.encode([query]).tolist()
 
     # 2. Ask ChromaDB for the closest chunks. n_results = how many to return.
     #    We ask for documents/metadatas/distances so we can show attribution.
-    results = collection.query(
-        query_embeddings=query_embedding,
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"],
-    )
+    #    If a metadata filter was given, pass it as the `where` clause so ChromaDB
+    #    only considers chunks whose metadata matches.
+    query_args = {
+        "query_embeddings": query_embedding,
+        "n_results": top_k,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if where is not None:
+        query_args["where"] = where
+    results = collection.query(**query_args)
 
     # ChromaDB returns "list of lists" (one inner list per query). We sent one
     # query, so we read index [0] from each parallel list.
@@ -243,6 +255,7 @@ def retrieve(query, collection, model, top_k=TOP_K):
         result = {
             "source": meta.get("source"),
             "chunk_index": meta.get("chunk_index"),
+            "char_length": meta.get("char_length"),
             "distance": dist,
             "text": doc,
         }

@@ -274,6 +274,46 @@ Retrieved from:
 
 ---
 
+## Stretch Feature: Metadata Filtering
+
+Every chunk is stored in ChromaDB with metadata (`source`, `chunk_index`, `char_length`), so retrieval can be restricted to chunks whose metadata matches a filter before semantic ranking happens. The `retrieve()` function takes an optional `where` argument that is passed straight to ChromaDB's `where` clause:
+
+```python
+retrieve(query, collection, model, where={"source": "01_mollytea_menu.txt"})  # one document only
+retrieve(query, collection, model, where={"char_length": {"$gte": 400}})       # longer chunks only
+```
+
+The demo script `demo_metadata_filtering.py` runs the same query — *"What makes a matcha drink taste less bitter?"* — three ways. The metadata filter visibly changes which chunks are returned:
+
+**1) No filter (all sources):**
+```
+- 10_jing_matcha_latte_vs_traditional.txt (chunk 1, 434 chars, dist 0.321)
+- 10_jing_matcha_latte_vs_traditional.txt (chunk 2, 440 chars, dist 0.377)
+- 10_jing_matcha_latte_vs_traditional.txt (chunk 4, 402 chars, dist 0.427)
+- 08_naoki_matcha_grades.txt            (chunk 7, 364 chars, dist 0.439)
+```
+
+**2) Filter `where source == "01_mollytea_menu.txt"`:**
+```
+- 01_mollytea_menu.txt (chunk 2, 339 chars, dist 0.490)
+- 01_mollytea_menu.txt (chunk 0, 376 chars, dist 0.505)
+- 01_mollytea_menu.txt (chunk 1, 482 chars, dist 0.523)
+```
+The results are now drawn *only* from the Molly Tea menu — none of the JING or Naoki chunks that dominated the unfiltered run appear.
+
+**3) Filter `where char_length >= 400`:**
+```
+- 10_jing_matcha_latte_vs_traditional.txt (chunk 1, 434 chars, dist 0.321)
+- 10_jing_matcha_latte_vs_traditional.txt (chunk 2, 440 chars, dist 0.377)
+- 10_jing_matcha_latte_vs_traditional.txt (chunk 4, 402 chars, dist 0.427)
+- 01_mollytea_menu.txt                   (chunk 1, 482 chars, dist 0.523)
+```
+Filtering on the numeric `char_length` field excludes the 364-character Naoki chunk that ranked 4th in the unfiltered run, replacing it with a longer chunk — a visible, metadata-driven change to the result set.
+
+Run it with `python demo_metadata_filtering.py` (after `python embed_and_retrieve.py`).
+
+---
+
 ## Spec Reflection
 
 **One way the spec helped me during implementation:** Writing the Chunking Strategy and Retrieval Approach sections of `planning.md` *before* coding gave me concrete parameters — 500-character chunks, 100-character overlap, `all-MiniLM-L6-v2`, and top-k = 4 — and, more importantly, the *reasoning* behind them. Because I had already articulated that my corpus mixes short reviews with longer articles, I could justify a chunker that prefers paragraph and sentence boundaries instead of a naive fixed split, and I never had to stop mid-implementation to re-decide basic parameters. The spec acted as a contract I could implement against directly.
