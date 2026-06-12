@@ -314,6 +314,35 @@ Run it with `python demo_metadata_filtering.py` (after `python embed_and_retriev
 
 ---
 
+## Stretch Feature: Conversational Memory
+
+`ask()` accepts an optional `history` argument — a list of prior `{question, answer}` turns — which gives the system multi-turn memory in two places:
+
+- **Retrieval:** the previous question is folded into the search query, so a follow-up containing a pronoun ("How much does **it** cost?") still retrieves the right chunks. On its own, "it" carries no meaning for the embedding model.
+- **Generation:** the prior turns are replayed as chat messages before the new question, so the model can resolve references back to the earlier exchange. Grounding is unchanged — each answer must still come from the retrieved chunks.
+
+The demo script `demo_conversational_memory.py` runs a two-turn conversation, then re-runs the second turn **with no history** as a control, to prove the effect is genuine memory and not a coincidence of topic overlap:
+
+```
+[Turn 1] User: What is the Cloud Matcha Latte?
+[Turn 1] Assistant: The Cloud Matcha Latte is a matcha latte topped with a layer of
+         cheese cloud (a creamy cheese foam), made with 1000 Mesh Matcha, real dairy
+         milk, and Original Cheese Cloud. It is priced at $9.99.
+
+[Turn 2 — WITH memory] User: How much does it cost?
+[Turn 2 — WITH memory] Assistant: The Cloud Matcha Latte costs $9.99.
+
+[Turn 2 — NO memory (control)] User: How much does it cost?
+[Turn 2 — NO memory (control)] Assistant: The Cloud Matcha Latte and the Triple
+         Supreme Matcha Latte both cost $9.99.
+```
+
+With memory, the system resolves "it" to the Cloud Matcha Latte from turn 1 and returns that drink's price. Without memory, "it" has no referent, so the model cannot disambiguate and instead lists *every* drink it finds a price for. The difference in the answer is driven entirely by the carried-over context.
+
+Run it with `python demo_conversational_memory.py` (after `python embed_and_retrieve.py`).
+
+---
+
 ## Spec Reflection
 
 **One way the spec helped me during implementation:** Writing the Chunking Strategy and Retrieval Approach sections of `planning.md` *before* coding gave me concrete parameters — 500-character chunks, 100-character overlap, `all-MiniLM-L6-v2`, and top-k = 4 — and, more importantly, the *reasoning* behind them. Because I had already articulated that my corpus mixes short reviews with longer articles, I could justify a chunker that prefers paragraph and sentence boundaries instead of a naive fixed split, and I never had to stop mid-implementation to re-decide basic parameters. The spec acted as a contract I could implement against directly.

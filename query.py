@@ -111,9 +111,18 @@ def _format_context(chunks):
     return "\n\n".join(blocks)
 
 
-def ask(question, top_k=TOP_K):
+def ask(question, top_k=TOP_K, history=None):
     """
     Answer a question using ONLY the retrieved chunks (grounded generation).
+
+    `history` enables CONVERSATIONAL MEMORY. Pass a list of prior turns, each a
+    dict like {"question": "...", "answer": "..."}. Two things use it:
+      * Retrieval: the previous question is folded into the search query so that
+        a follow-up with a pronoun ("Does IT contain milk?") still retrieves the
+        right chunks — otherwise "it" has no meaning to the embedding model.
+      * Generation: the prior turns are replayed as chat messages before the new
+        question, so the model can resolve references to the earlier exchange.
+    Grounding is unchanged: each answer must still come from the retrieved chunks.
 
     Returns a dictionary:
         {
@@ -123,9 +132,17 @@ def ask(question, top_k=TOP_K):
         }
     """
     model, collection, groq_client = _get_resources()
+    history = history or []
 
-    # 1. RETRIEVE — reuse your existing retrieval function unchanged.
-    retrieved_chunks = retrieve(question, collection, model, top_k=top_k)
+    # 1. RETRIEVE. For a follow-up question, fold the most recent previous
+    #    question into the search query so pronouns/references ("it", "that one")
+    #    still pull back the right chunks. Without this, "Does it contain milk?"
+    #    would embed with no idea what "it" is.
+    if history:
+        retrieval_query = f"{history[-1]['question']} {question}"
+    else:
+        retrieval_query = question
+    retrieved_chunks = retrieve(retrieval_query, collection, model, top_k=top_k)
 
     # If retrieval found nothing at all, we cannot ground an answer.
     if not retrieved_chunks:
@@ -134,21 +151,27 @@ def ask(question, top_k=TOP_K):
     # 2. FORMAT the retrieved chunks into a context block.
     context = _format_context(retrieved_chunks)
 
-    # 3. BUILD the message the user role sends: context + the actual question.
-    user_prompt = (
-        f"Context chunks:\n{context}\n\n"
-        f"Question: {question}\n\n"
-        f"Answer using only the context above."
-    )
+    # 3. BUILD the message list. Start with the system prompt, replay any prior
+    #    turns so the model remembers the conversation, then send the new
+    #    question together with the freshly retrieved context.
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for turn in history:
+        messages.append({"role": "user", "content": turn["question"]})
+        messages.append({"role": "assistant", "content": turn["answer"]})
+    messages.append({
+        "role": "user",
+        "content": (
+            f"Context chunks:\n{context}\n\n"
+            f"Question: {question}\n\n"
+            f"Answer using only the context above."
+        ),
+    })
 
     # 4. CALL the Groq LLM. temperature=0 makes the answer deterministic and
     #    discourages creative (hallucinated) additions.
     response = groq_client.chat.completions.create(
         model=GROQ_MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
+        messages=messages,
         temperature=0,
     )
     answer = response.choices[0].message.content.strip()
