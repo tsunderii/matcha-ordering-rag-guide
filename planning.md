@@ -9,111 +9,105 @@
 
 ## Domain
 
-<!-- What domain did you choose? Why is this knowledge valuable and hard to find through official channels? -->
+chose the domain beginner’s guide to ordering matcha at specialty tea cafes. This domain focuses on helping people who are new to matcha understand how to order matcha drinks from modern tea shops, boba cafes, and specialty drink shops.
+
+This knowledge is valuable because matcha cafe menus can be confusing for beginners. Menus often include terms like matcha latte, cloud matcha, salted cheese, jasmine matcha, ceremonial matcha, culinary matcha, sweetness level, and milk alternatives without explaining what they actually mean.
 
 ---
 
 ## Documents
 
-<!-- List your specific sources: URLs, subreddit names, forum threads, or file descriptions.
-     Aim for at least 10 sources that together cover different subtopics or perspectives within your domain. -->
+| # | Source | Type | URL or file path |
+|---|--------|------|-----------------|
+| 1 | Molly Tea Menu | Official cafe menu | https://www.mollytea.co.th/en/menu/ |
+| 2 | Molly Tea Bellevue Delivery Menu | Delivery menu / item descriptions | https://www.grubhub.com/restaurant/molly-tea-bellevue-103-bellevue-way-northeast-bellevue/13106344 |
+| 3 | Molly Tea San Gabriel Delivery Menu | Delivery menu / item descriptions | https://www.grubhub.com/restaurant/molly-tea-425-w-valley-blvd-san-gabriel/12261624 |
+| 4 | HEYTEA Cloud Matcha Latte Menu Page | Menu page / drink details | https://theheyteamenu.us/cloud-matcha-latte/ |
+| 5 | HEYTEA Supreme Matcha Latte Menu Page | Menu page / drink details | https://theheyteamenu.us/supreme-matcha-latte/ |
+| 6 | Reddit r/MatchaEverything: HEYTEA’s matcha discussion | Forum discussion / customer opinions | https://www.reddit.com/r/MatchaEverything/comments/1las3u9/i_might_get_roasted_for_this_but_i_think_heyteas/ |
+| 7 | Reddit r/bubbletea: HEYTEA favorite bubble tea spot discussion | Forum discussion / customer opinions | https://www.reddit.com/r/bubbletea/comments/1kz2jgp/heytea_is_my_favorite_bubble_tea_spot_whats_yours/ |
+| 8 | Reddit r/MatchaEverything: Sweet tasting matcha powders for beginners | Forum discussion / beginner matcha opinions | https://www.reddit.com/r/MatchaEverything/comments/1j9bw6b/sweet_tasting_matcha_powders_for_beginners/ |
+| 9 | Food & Wine: Ceremonial Grade Matcha Doesn’t Actually Exist in Japan | Article / matcha quality explanation | https://www.foodandwine.com/ceremonial-vs-culinary-matcha-8641415 |
+| 10 | Ikimatcha: Which Matcha to Buy? Ceremonial vs Culinary | Article / matcha grade guide | https://ikimatcha.co/blogs/news/which-matcha-to-buy |
 
-| # | Source | Description | URL or location |
-|---|--------|-------------|-----------------|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
-| 5 | | | |
-| 6 | | | |
-| 7 | | | |
-| 8 | | | |
-| 9 | | | |
-| 10 | | | |
 
 ---
 
 ## Chunking Strategy
 
-<!-- How will you split documents into chunks?
-     State your chunk size (in tokens or characters), overlap size, and explain why those
-     numbers fit the structure of your documents.
-     A review-heavy corpus warrants different chunking than a long FAQ. -->
-
 **Chunk size:**
+I will split my documents into chunks of about 500 characters with an overlap of about 100 characters. This chunk size fits my documents because my corpus includes a mix of short menu descriptions, short reviews, Reddit comments, and longer educational articles. A smaller chunk size helps keep each retrieved chunk focused on one drink, one opinion, or one matcha concept.
 
 **Overlap:**
+The 100-character overlap helps because some useful information may span across two chunks. For example, one sentence might describe a drink’s ingredients, while the next sentence explains its flavor or whether it is beginner-friendly. The overlap increases the chance that a retrieved chunk still contains enough context to be useful.
 
 **Reasoning:**
+If my chunks are too small, the system might retrieve fragments that do not fully answer the question. For example, it might retrieve only “salted cheese topping” without explaining whether it makes the drink sweeter, creamier, or better for beginners. If my chunks are too large, the system might retrieve too much unrelated information at once, such as multiple drinks or multiple opinions in one chunk, making it harder for the LLM to give a focused answer. Bad retrieval results would look like answers that are too vague, mix up drinks, or cite chunks that only partially relate to the question.
 
 ---
 
 ## Retrieval Approach
 
-<!-- Which embedding model are you using (e.g., all-MiniLM-L6-v2 via sentence-transformers)?
-     How many chunks will you retrieve per query (top-k)?
-     If you were deploying this for real users and cost wasn't a constraint, what tradeoffs
-     would you weigh in choosing a different embedding model — context length, multilingual
-     support, accuracy on domain-specific text, latency? -->
-
 **Embedding model:**
+I plan to use all-MiniLM-L6-v2 through sentence-transformers as my embedding model. I will retrieve the top 4 chunks per query. Four chunks should give the LLM enough context to compare multiple sources without overwhelming it with too much unrelated text.
 
 **Top-k:**
+Retrieving 4 chunks should give the LLM enough information to answer with context from multiple sources without including too much unrelated text. If I retrieve too few chunks, the system might miss useful information or rely on only one source. For example, a question about beginner-friendly matcha might need information from both a matcha education article and customer opinions. If I retrieve too many chunks, the context could become noisy and include unrelated drinks, general boba opinions, or off-topic comments.
 
 **Production tradeoff reflection:**
+If I were deploying this for real users and cost was not a constraint, I would consider a stronger embedding model with better accuracy, longer context length, and better support for informal language. Since some documents may include Reddit comments, menu terms, or non-English tea names, I would also consider multilingual support and domain-specific accuracy. The tradeoff is that larger embedding models can be slower and more expensive.
 
 ---
 
 ## Evaluation Plan
 
-<!-- List your 5 test questions with their expected correct answers.
-     Questions should be specific enough that you can judge whether the system's response
-     is right or wrong. "What are good dining halls?" is too vague.
-     "What do students say about wait times at [dining hall name] during lunch?" is testable. -->
-
 | # | Question | Expected answer |
 |---|----------|-----------------|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
-
+| 1 | What type of matcha drink would be best for a beginner who does not want something too bitter? | A matcha latte or a sweeter milk-based matcha drink would be best because milk and sweetness can make the matcha flavor smoother and less bitter. |
+| 2 | What customizations can make a matcha drink taste sweeter or creamier? | Adding sweetness, choosing a creamy milk like oat milk, ordering a latte-style drink, or adding cream/foam toppings can make the drink sweeter or creamier. |
+| 3 | What is the difference between ceremonial and culinary matcha? | Ceremonial matcha is usually marketed as higher quality and better for drinking plain, while culinary matcha is usually used for lattes, baking, or mixing. However, the labels can be inconsistent, so beginners should not rely only on those terms. |
+| 4 | Why are Reddit discussions and customer reviews useful for this guide? | They provide real customer opinions about taste, sweetness, bitterness, texture, and whether a drink is beginner-friendly. Official menus usually only provide ingredients and prices. |
+| 5 | What should someone order if they want a stronger matcha flavor? | They should choose a drink where matcha is the main focus, use less sugar, avoid too many toppings or fruit flavors, and avoid drinks where milk or cream overpowers the matcha. |
 ---
 
 ## Anticipated Challenges
 
-<!-- What could go wrong? Name at least two specific risks with reasoning.
-     Consider: noisy or inconsistent documents, missing source attribution, off-topic
-     retrieval, chunks that split key information across boundaries. -->
+1. One risk is noisy or inconsistent documents because many sources are based on customer opinions, Reddit comments, or reviews. Different people may describe the same matcha drink differently depending on their taste preferences. For example, one person may say a drink is too bitter while another person may say it is smooth and balanced. This could make it harder for the system to give one clear answer.
 
-1.
-
-2.
+2. Another risk is off-topic retrieval or poor chunking. Some cafe menus and discussion threads may include non-matcha drinks, general boba drinks, or unrelated cafe opinions. If the chunks are too large or split badly, the system might retrieve information about the wrong drink or miss important context, such as the drink name, ingredients, or whether the drink is beginner-friendly.
 
 ---
 
 ## Architecture
 
-<!-- Draw a diagram of your pipeline showing the five stages:
-     Document Ingestion → Chunking → Embedding + Vector Store → Retrieval → Generation
-     Label each stage with the tool or library you're using.
-     You can use ASCII art, a Mermaid diagram, or embed a sketch as an image.
-     You'll use this diagram as context when prompting AI tools to implement each stage. -->
+The "Unofficial Guide to Ordering Matcha" is built as a Retrieval-Augmented Generation (RAG) pipeline. A user question flows through five stages, from ingesting source documents to generating a grounded answer:
+
+```mermaid
+flowchart TD
+    A["📄 Document Ingestion<br/>Python · local text/HTML/Markdown docs"]
+    B["✂️ Chunking<br/>custom chunk_text()<br/>500-char chunks · 100-char overlap"]
+    C["🧮 Embedding + Vector Store<br/>sentence-transformers (all-MiniLM-L6-v2)<br/>stored in ChromaDB"]
+    D["🔍 Retrieval<br/>semantic search · top-k = 4"]
+    E["💬 Generation<br/>LLM answers using retrieved chunks + source metadata"]
+
+    A --> B --> C --> D --> E
+```
 
 ---
 
 ## AI Tool Plan
 
-<!-- For each part of the pipeline below, describe:
-     - Which AI tool you plan to use (Claude, Copilot, ChatGPT, etc.)
-     - What you'll give it as input (which sections of this planning.md, which requirements)
-     - What you expect it to produce
-     - How you'll verify the output matches your spec
+1. I plan to use Claude as a brainstorming and feedback tool by giving it my planning sections and asking it to point out unclear parts or weaknesses. I will compare its suggestions with the assignment requirements before deciding what to change.
 
-     "I'll use AI to help me code" is not a plan.
-     "I'll give Claude my Chunking Strategy section and ask it to implement chunk_text()
-     with my specified chunk size and overlap" is a plan. -->
+2. I plan to use Claude to refine my writing by giving it rough drafts of my Domain, Chunking Strategy, Retrieval Approach, and Evaluation Plan sections. I will make sure the revised wording still reflects my own project choices.
+
+3. I plan to use Claude to help implement my `chunk_text()` function by giving it my chunk size, overlap size, and document types. I will test the function myself to check that chunks are readable and keep important context together.
+
+4. I plan to use Claude to review retrieval results by giving it a test question, the retrieved chunks, and my retrieval settings. I will use the conversation to reason through whether the results are relevant instead of accepting its feedback automatically.
+
+5. I plan to use Claude to improve my evaluation questions by asking whether each question is specific and testable. I will verify that each final question can be answered using my collected documents.
+
+6. Overall, I will use Claude thoughtfully as a support tool, not as a replacement for my own decisions. I will combine its feedback with my own judgment and the project instructions before submitting anything.
 
 **Milestone 3 — Ingestion and chunking:**
 

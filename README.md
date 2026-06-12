@@ -17,13 +17,6 @@ This knowledge is valuable because specialty tea cafe menus often include matcha
 
 ## Document Sources
 
-<!-- List every source you collected documents from.
-     Be specific: include URLs, subreddit names, forum thread titles, or file names.
-     Aim for variety — sources that together cover different subtopics or perspectives. -->
-
-Paste this into your `README.md`:
-
-```txt
 | # | Source | Type | URL or file path |
 |---|--------|------|-----------------|
 | 1 | Molly Tea Menu | Official cafe menu | https://www.mollytea.co.th/en/menu/ |
@@ -36,7 +29,7 @@ Paste this into your `README.md`:
 | 8 | Reddit r/MatchaEverything: Sweet tasting matcha powders for beginners | Forum discussion / beginner matcha opinions | https://www.reddit.com/r/MatchaEverything/comments/1j9bw6b/sweet_tasting_matcha_powders_for_beginners/ |
 | 9 | Food & Wine: Ceremonial Grade Matcha Doesn’t Actually Exist in Japan | Article / matcha quality explanation | https://www.foodandwine.com/ceremonial-vs-culinary-matcha-8641415 |
 | 10 | Ikimatcha: Which Matcha to Buy? Ceremonial vs Culinary | Article / matcha grade guide | https://ikimatcha.co/blogs/news/which-matcha-to-buy |
-```
+
 
 
 ---
