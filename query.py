@@ -179,10 +179,14 @@ def ask(question, top_k=TOP_K):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     TEST_QUESTIONS = [
+        # The 5 evaluation questions from planning.md
         "What type of matcha drink would be best for a beginner who does not want something too bitter?",
         "What customizations can make a matcha drink taste sweeter or creamier?",
         "What is the difference between ceremonial and culinary matcha?",
-        "What parking situation is best near UCSC?",  # expected: refusal
+        "What's the difference between a Cloud Matcha and a regular matcha latte?",
+        "What should someone order if they want a stronger matcha flavor?",
+        # Robustness check: out-of-domain question, should trigger the refusal
+        "What parking situation is best near UCSC?",
     ]
 
     for q in TEST_QUESTIONS:

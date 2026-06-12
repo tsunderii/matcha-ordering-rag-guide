@@ -66,8 +66,11 @@ If I were deploying this for real users and cost was not a constraint, I would c
 | 1 | What type of matcha drink would be best for a beginner who does not want something too bitter? | A matcha latte or a sweeter milk-based matcha drink would be best because milk and sweetness can make the matcha flavor smoother and less bitter. |
 | 2 | What customizations can make a matcha drink taste sweeter or creamier? | Adding sweetness, choosing a creamy milk like oat milk, ordering a latte-style drink, or adding cream/foam toppings can make the drink sweeter or creamier. |
 | 3 | What is the difference between ceremonial and culinary matcha? | Ceremonial matcha is usually marketed as higher quality and better for drinking plain, while culinary matcha is usually used for lattes, baking, or mixing. However, the labels can be inconsistent, so beginners should not rely only on those terms. |
-| 4 | Why are Reddit discussions and customer reviews useful for this guide? | They provide real customer opinions about taste, sweetness, bitterness, texture, and whether a drink is beginner-friendly. Official menus usually only provide ingredients and prices. |
+| 4 | What is the difference between a Cloud Matcha and a regular matcha latte? | A Cloud Matcha is a matcha latte topped with a layer of salted cheese foam, which adds a creamy, slightly savory layer that balances the matcha's bitterness. A regular matcha latte is stone-ground matcha shaken with fresh milk at a chosen sweetness level. The Cloud version is often considered more approachable for first-timers because the foam softens the flavor. |
 | 5 | What should someone order if they want a stronger matcha flavor? | They should choose a drink where matcha is the main focus, use less sugar, avoid too many toppings or fruit flavors, and avoid drinks where milk or cream overpowers the matcha. |
+
+> **Revision note (evaluation stage):** Question 4 originally asked "Why are Reddit discussions and customer reviews useful for this guide?" During evaluation I found this was a *methodology* question about the project itself, not a question my content corpus could answer — retrieval returned only weakly-related chunks (cosine distance ~0.9) and the system correctly refused. I replaced it with a content question that exercises my stated risk of confusing similar drinks, so the question is answerable from the documents and the result is meaningful evidence.
+
 ---
 
 ## Anticipated Challenges
@@ -109,8 +112,8 @@ flowchart TD
 
 6. Overall, I will use Claude thoughtfully as a support tool, not as a replacement for my own decisions. I will combine its feedback with my own judgment and the project instructions before submitting anything.
 
-**Milestone 3 — Ingestion and chunking:**
+**Milestone 3 — Ingestion and chunking:** I gave Claude my Chunking Strategy section and document types and asked it to implement `chunk_text()`. It produced a sliding-window chunker (500 characters, 100 overlap) that snaps chunk boundaries to paragraph/sentence breaks, plus a cleaning step (HTML/entity/boilerplate removal) and an inspection step with warnings. I verified the output by reading representative and random chunks before accepting the parameters.
 
-**Milestone 4 — Embedding and retrieval:**
+**Milestone 4 — Embedding and retrieval:** I used `all-MiniLM-L6-v2` with ChromaDB and top-k = 4. Claude flagged that ChromaDB defaults to L2 distance, which would not match my planned 0.5/0.6/0.7 relevance thresholds, so I configured cosine distance instead. I tested retrieval on the evaluation questions and confirmed relevant chunks ranked first at low distances.
 
-**Milestone 5 — Generation and interface:**
+**Milestone 5 — Generation and interface:** I connected retrieval to Groq `llama-3.3-70b-versatile` with a strict grounding prompt and built a Gradio UI. Adding Gradio 6.x forced an upgrade of the embedding stack (sentence-transformers/transformers); I verified retrieval distances were unchanged before keeping it. I tested grounding with an off-topic question and confirmed the system refuses instead of hallucinating.

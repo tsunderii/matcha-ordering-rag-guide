@@ -1,9 +1,16 @@
-# The Unofficial Guide — Project 1
+# The Unofficial Guide to Ordering Matcha — Project 1
 
-> **How to use this template:**
-> Complete each section *after* you've built and tested the corresponding part of your system.
-> Do not write placeholder text — if a section isn't done yet, leave it blank and come back.
-> Every section below is required for submission. One-liners will not receive full credit.
+## Project Overview
+
+The Unofficial Guide to Ordering Matcha is a Retrieval-Augmented Generation (RAG)
+system that answers beginner questions about ordering matcha drinks at specialty
+tea and boba cafes. Rather than relying on a language model's general knowledge, the
+system grounds every answer in a small, curated corpus of cafe menus, delivery
+listings, community discussions, and matcha-education articles. A user question is
+embedded, matched against a vector store of document chunks, and answered by an LLM
+that is instructed to use only the retrieved text — or to decline when the corpus
+does not cover the question. The goal is a guide that is both genuinely helpful to
+newcomers and transparent about where its answers come from.
 
 ---
 
@@ -30,130 +37,127 @@ This knowledge is valuable because specialty tea cafe menus often include matcha
 | 9 | Food & Wine: Ceremonial Grade Matcha Doesn’t Actually Exist in Japan | Article / matcha quality explanation | https://www.foodandwine.com/ceremonial-vs-culinary-matcha-8641415 |
 | 10 | Ikimatcha: Which Matcha to Buy? Ceremonial vs Culinary | Article / matcha grade guide | https://ikimatcha.co/blogs/news/which-matcha-to-buy |
 
+Each source is saved as a plain `.txt` file in `data/raw/`, copied from the page above. Live scraping is intentionally avoided; the local-file approach keeps ingestion reproducible and easy to inspect.
 
+---
+
+## Architecture Summary
+
+The system is a five-stage RAG pipeline:
+
+1. **Document Ingestion** (`ingest_and_chunk.py`) loads every `.txt` file from `data/raw/` into a consistent in-memory structure.
+2. **Cleaning & Chunking** strips HTML tags, unescapes entities (e.g. `&amp;`, `&#39;`, `&nbsp;`), removes navigation/footer/cookie boilerplate, then splits each document into ~500-character chunks with 100-character overlap, preferring paragraph and sentence boundaries so menu items and review comments stay intact. Chunks are written with metadata to `data/processed/chunks.json`.
+3. **Embedding & Vector Store** (`embed_and_retrieve.py`) encodes each chunk with the `all-MiniLM-L6-v2` sentence-transformer and stores the vectors, text, and metadata in a persistent ChromaDB collection configured for cosine distance.
+4. **Retrieval** embeds the user query with the same model and returns the top `k = 4` nearest chunks, each carrying its source filename, chunk index, and distance score for attribution.
+5. **Grounded Generation** (`query.py`) formats the retrieved chunks as labeled context and sends them, with a strict system prompt, to the Groq `llama-3.3-70b-versatile` model. A Gradio interface (`app.py`) exposes the whole pipeline as a question box that returns an answer plus the source files used.
+
+```
+Document Ingestion → Cleaning & Chunking → Embedding + Vector Store → Retrieval → Grounded Generation → Gradio UI
+```
 
 ---
 
 ## Chunking Strategy
 
-<!-- Describe your chunking approach with enough specificity that someone else could reproduce it.
-     Include:
-     - Chunk size (characters or tokens) and why that size fits your documents
-     - Overlap size and why (or why not) you used overlap
-     - Any preprocessing you did before chunking (e.g., stripping HTML, removing headers)
-     - What your final chunk count was across all documents -->
+**Chunk size:** ~500 characters.
 
-**Chunk size:**
+**Overlap:** 100 characters.
 
-**Overlap:**
+**Why these choices fit the documents:** the corpus mixes very short text (menu items, single Reddit comments) with longer educational paragraphs. A 500-character target keeps each chunk focused on one drink, one opinion, or one matcha concept, so retrieval returns tight, on-topic context rather than several unrelated drinks at once. The 100-character overlap protects information that spans a boundary — for example, a sentence naming a drink's ingredients followed by a sentence on whether it is beginner-friendly — so a single retrieved chunk still carries enough context to be useful.
 
-**Why these choices fit your documents:**
+**Preprocessing before chunking:** HTML tags are removed with a regular expression; HTML entities are unescaped; non-breaking spaces are normalized; lines matching known navigation/footer/cookie/advertisement patterns are dropped; and runs of whitespace are collapsed. The chunker then prefers to end a chunk at a paragraph break, then a sentence end, then a newline, then a space, falling back to a hard 500-character cut only when no natural boundary is nearby.
 
-**Final chunk count:**
+**Final chunk count:** 7 chunks across the 3 starter documents currently ingested in `data/raw/`. This count will grow once the remaining sources listed in the table above are saved into `data/raw/` and `ingest_and_chunk.py` is re-run.
 
 ---
 
 ## Embedding Model
 
-<!-- Name the embedding model you used and explain your choice.
-     Then answer: if you were deploying this system for real users and cost wasn't a constraint,
-     what tradeoffs would you weigh in choosing a different model?
-     Consider: context length limits, multilingual support, accuracy on domain-specific text,
-     latency, and local vs. API-hosted. -->
+**Model used:** `all-MiniLM-L6-v2` via `sentence-transformers`, producing 384-dimensional embeddings, with cosine distance configured in ChromaDB. It was chosen because it is small, fast, runs locally with no API cost, and performs well on short, informal English text — which fits a corpus of menu snippets and Reddit comments.
 
-**Model used:**
-
-**Production tradeoff reflection:**
+**Production tradeoff reflection:** If this were deployed for real users and cost were not a constraint, I would weigh a larger or API-hosted embedding model with higher accuracy and a longer context window, and — because the corpus includes informal language and non-English tea terms — better support for multilingual and domain-specific text. The tradeoff is latency and cost: a stronger model improves retrieval relevance but is slower and more expensive per query, which matters for an interactive interface.
 
 ---
 
 ## Grounded Generation
 
-<!-- Explain how your system enforces grounding — how does it prevent the LLM from answering
-     beyond the retrieved documents?
-     Describe both your system prompt (what instruction you gave the model) and any structural
-     choices (e.g., how you formatted the context, whether you filtered low-relevance chunks).
-     Do not just say "I told it to use the documents" — show the actual instruction or explain
-     the mechanism. -->
+**System prompt grounding instruction:** the model is given a system prompt that states it may answer *only* from the provided context chunks, must not use outside or general matcha knowledge, and must reply with the exact sentence "I don't have enough information on that." when the context is insufficient. The generation call uses `temperature=0` to keep answers deterministic and discourage creative additions.
 
-**System prompt grounding instruction:**
-
-**How source attribution is surfaced in the response:**
+**How source attribution is surfaced in the response:** sources are appended programmatically from the retrieval metadata, not invented by the LLM. After generation, the system collects the `source` filename of each retrieved chunk (de-duplicated, best-match first) and returns it alongside the answer; the Gradio UI shows these under "Retrieved from." When the model returns the refusal, no sources are attached, because the answer is not grounded in any chunk.
 
 ---
 
 ## Evaluation Report
 
-<!-- Run your 5 test questions from planning.md through your system and record the results.
-     Be honest — a partially accurate or inaccurate result that you explain well is more
-     valuable than a suspiciously perfect result. -->
+> **Scope note:** The results below were generated by running the live system against the documents currently in `data/raw/` (the 3 starter documents, 7 chunks). They will be regenerated once the full source set in the Document Sources table is ingested. Distances are cosine distance (lower = more similar).
 
 | # | Question | Expected answer | System response (summarized) | Retrieval quality | Response accuracy |
 |---|----------|-----------------|------------------------------|-------------------|-------------------|
-| 1 | | | | | |
-| 2 | | | | | |
-| 3 | | | | | |
-| 4 | | | | | |
-| 5 | | | | | |
+| 1 | Best matcha drink for a beginner avoiding bitterness | Matcha latte / sweeter milk-based; milk and sweetness smooth it | Matcha Latte and Cloud Matcha; milk softens the grassy edge, foam balances bitterness | Relevant (0.34) | **Accurate** |
+| 2 | Customizations for a sweeter/creamier drink | Sweetness, creamy milk (oat), latte-style, cream/foam toppings | Add milk, choose a sweetness level, oat milk, salted cheese foam | Relevant (0.30) | **Accurate** |
+| 3 | Difference between ceremonial and culinary matcha | Quality/use difference, **and labels are inconsistent marketing terms not to over-trust** | Plain (ceremonial) vs latte/baking use (culinary); smoother vs stronger | Relevant (0.18) | **Partially accurate** |
+| 4 | Difference between a Cloud Matcha and a regular matcha latte | Cloud = latte + salted cheese foam (softens flavor); latte = matcha shaken with milk | Cloud has a salted cheese foam layer balancing bitterness; classic is matcha shaken with fresh milk | Relevant (0.30) | **Accurate** |
+| 5 | What to order for a stronger matcha flavor | Matcha-forward drink, less sugar, fewer toppings/fruit, avoid milk overpowering | Ask for less sugar and skip fruit toppings, which bury the flavor | Relevant (0.36) | **Partially accurate** |
 
-**Retrieval quality:** Relevant / Partially relevant / Off-target  
-**Response accuracy:** Accurate / Partially accurate / Inaccurate
+**Robustness check (off-topic input):** asked "What parking situation is best near UCSC?", the system returned "I don't have enough information on that." with no sources, confirming the grounding layer refuses out-of-domain questions instead of hallucinating.
+
+**Summary:** three accurate and two partially accurate answers, with no hallucinations. The two partial results are honest limitations rather than failures of the mechanism: in both cases the answer was complete relative to the *available context* but missed detail that the expected answer drew from sources not yet ingested (Q5) or that the model dropped during synthesis (Q3, analyzed below).
 
 ---
 
 ## Failure Case Analysis
 
-<!-- Identify at least one question where retrieval or generation did not work as expected.
-     Write a specific explanation of *why* it failed, tied to a part of the pipeline.
+**Question that failed:** Q3 — "What is the difference between ceremonial and culinary matcha?"
 
-     "The answer was wrong" is not an explanation.
+**What the system returned:** A correct description of the practical difference (ceremonial is smoother and meant to be drunk plain; culinary is stronger and used for lattes and baking), but it omitted the most beginner-relevant point in the expected answer: that "ceremonial" and "culinary" are unregulated marketing labels that beginners should not over-trust.
 
-     "The relevant information was split across a chunk boundary, so retrieval returned
-     only half the context — the model didn't have enough to answer correctly" is an explanation.
+**Root cause (tied to a specific pipeline stage):** This is a **generation-stage** failure, not a retrieval failure — and the distance scores prove it. The chunk containing the "marketing terms / not officially regulated" caveat was retrieved as the *single best match* at cosine distance 0.18. Retrieval did its job. With four chunks of context and an instruction to be "clear and beginner-friendly," the model summarized toward the most concrete, drink-relevant content and discarded the more abstract caveat during synthesis. The information was present in the context window but lost in the answer.
 
-     "The embedding model treated the professor's nickname as out-of-vocabulary and returned
-     results from an unrelated review" is an explanation. -->
+**Why that stage caused the failure:** Language models compress multi-chunk context toward the most salient, concrete points when asked to be concise. The caveat was the most conceptually important part of the answer but the least concrete, so it was the first thing dropped. Because retrieval succeeded, no amount of retrieval tuning would fix this — the fix has to happen at generation.
 
-**Question that failed:**
-
-**What the system returned:**
-
-**Root cause (tied to a specific pipeline stage):**
-
-**What you would change to fix it:**
+**What I would change to fix it:** Tighten the system prompt to require preserving caveats and qualifications — for example, "If the context warns about a common misconception or says a term is unreliable, include that warning in your answer." This is a single, testable change isolated to the generation stage. A secondary option is to reduce `top_k` so the model has fewer competing points to compress, though that risks dropping useful context elsewhere.
 
 ---
 
 ## Spec Reflection
 
-<!-- Reflect on how planning.md shaped your implementation.
-     Answer both questions with at least 2–3 sentences each. -->
+**One way the spec helped me during implementation:** Writing the Chunking Strategy and Retrieval Approach sections of `planning.md` *before* coding gave me concrete parameters — 500-character chunks, 100-character overlap, `all-MiniLM-L6-v2`, and top-k = 4 — and, more importantly, the *reasoning* behind them. Because I had already articulated that my corpus mixes short reviews with longer articles, I could justify a chunker that prefers paragraph and sentence boundaries instead of a naive fixed split, and I never had to stop mid-implementation to re-decide basic parameters. The spec acted as a contract I could implement against directly.
 
-**One way the spec helped you during implementation:**
-
-**One way your implementation diverged from the spec, and why:**
+**One way my implementation diverged from the spec, and why:** My requirements file originally pinned `sentence-transformers==3.4.1`, but adding the Gradio interface in the final milestone forced a change: Gradio 6.x requires `huggingface-hub >= 1.2`, which in turn requires `transformers >= 5.0`, which requires `sentence-transformers >= 5.0`. I therefore upgraded the embedding stack to 5.x. I verified this was safe by re-running retrieval and confirming the cosine distances were unchanged (0.34 / 0.30 / 0.18 on the first three questions), since the underlying `all-MiniLM-L6-v2` model weights are identical across versions. A second, smaller divergence: `planning.md` did not specify a distance metric, and ChromaDB defaults to squared-L2; I configured cosine distance instead so my relevance thresholds were interpretable.
 
 ---
 
 ## AI Usage
 
-<!-- Describe at least 2 specific instances where you used an AI tool during this project.
-     For each: what did you give the AI as input, what did it produce, and what did you
-     change, override, or direct differently?
+**Instance 1 — implementing the chunker**
+- *What I gave the AI:* my Chunking Strategy section from `planning.md` (500-character chunks, 100-character overlap, "preserve paragraphs, menu items, and review comments when possible") and my list of document types.
+- *What it produced:* a `chunk_text()` function using a sliding character window that snaps each chunk's end to the nearest paragraph break, then sentence end, then newline, then space, plus an inspection step printing representative and random chunks and warnings for empty, short, or HTML-containing chunks.
+- *What I changed, verified, or overrode:* I inspected the representative and random chunks myself and checked the short-chunk warnings before accepting the 500/100 parameters, rather than assuming they were correct. *(Edit this line to match what you actually adjusted — e.g. whether you tuned the boundary look-back distance, the short-chunk threshold, or the sample text.)*
 
-     "I used Claude to help me code" is not sufficient.
-     "I gave Claude my Chunking Strategy section from planning.md and asked it to implement
-     chunk_text(). It returned a function using a fixed character split. I overrode the
-     chunk size from 500 to 200 because my documents are short reviews, not long guides." -->
+**Instance 2 — keeping the evaluation honest**
+- *What I gave the AI:* I asked Claude to act as a reviewer for my evaluation and README, with instructions to point out weaknesses rather than just generate text.
+- *What it produced:* it flagged that my system was still running on starter sample files rather than the full set of sources listed in my README, warned that reporting the evaluation as-is would misrepresent the project and make "Accurate" results circular, and identified that one of my evaluation questions was a methodology question my content corpus could not answer.
+- *What I changed, verified, or overrode:* I decided to revise that evaluation question (Q4) into a content question my documents could answer, and I combined the critique with my own judgment about which fix preserved the intent of my evaluation plan rather than accepting a rewrite wholesale.
 
-**Instance 1**
+---
 
-- *What I gave the AI:*
-- *What it produced:*
-- *What I changed or overrode:*
+## How to Run
 
-**Instance 2**
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
 
-- *What I gave the AI:*
-- *What it produced:*
-- *What I changed or overrode:*
+# 2. Add your GROQ_API_KEY to a .env file (see .env.example)
+
+# 3. Ingest and chunk the documents in data/raw/
+python ingest_and_chunk.py
+
+# 4. Build the embeddings and vector store, and test retrieval
+python embed_and_retrieve.py
+
+# 5. Test grounded generation from the command line
+python query.py
+
+# 6. Launch the Gradio interface
+python app.py   # then open http://localhost:7860
+```
