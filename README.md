@@ -12,6 +12,10 @@ that is instructed to use only the retrieved text — or to decline when the cor
 does not cover the question. The goal is a guide that is both genuinely helpful to
 newcomers and transparent about where its answers come from.
 
+## Demo Video
+
+A walkthrough of the project is available here: https://youtu.be/b__8wev81Hg
+
 ---
 
 ## Domain
